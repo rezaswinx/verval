@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verval - Data Pertanahan</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --border: #e2e5ea;
+    --text: #1a1d23;
+    --text-dim: #6b7280;
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --success: #16a34a;
+    --warn: #d97706;
+    --danger: #dc2626;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+  }
+  .app { display: none; }
+  .app.active { display: block; }
+
+  /* LOGIN */
+  #loginScreen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .login-box {
+    background: var(--panel);
+    border-radius: var(--radius);
+    padding: 32px 28px;
+    width: 100%;
+    max-width: 360px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    border: 1px solid var(--border);
+  }
+  .login-box h1 { font-size: 20px; margin: 0 0 4px; }
+  .login-box p.sub { color: var(--text-dim); margin: 0 0 24px; font-size: 13px; }
+  label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 13px; }
+  input, select, textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    margin-bottom: 14px;
+    background: #fff;
+    color: var(--text);
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 16px;
+  }
+  .btn-primary { background: var(--primary); color: #fff; width: 100%; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-secondary { background: #fff; color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: #f3f4f6; }
+  .btn-danger { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
+  .error-msg { color: var(--danger); font-size: 13px; margin: -6px 0 14px; display: none; }
+
+  /* HEADER */
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header .brand { font-weight: 700; font-size: 15px; }
+  header .who { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-dim); }
+  header .who b { color: var(--text); }
+  nav.tabs { display: flex; gap: 4px; padding: 10px 20px 0; background: var(--panel); border-bottom: 1px solid var(--border); }
+  nav.tabs button {
+    background: transparent;
+    border: none;
+    padding: 10px 16px;
+    font-weight: 600;
+    color: var(--text-dim);
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+  }
+  nav.tabs button.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+  main { padding: 20px; max-width: 1100px; margin: 0 auto; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 16px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; align-items: end; }
+  @media (max-width: 720px) { .grid3 { grid-template-columns: 1fr 1fr; } }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+  th { background: #fafbfc; font-weight: 600; color: var(--text-dim); position: sticky; top: 0; }
+  tbody tr:hover { background: #fafbfc; }
+  .table-wrap { overflow-x: auto; max-height: 60vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .badge-info { background: #eff6ff; color: var(--primary); }
+  .badge-warn { background: #fffbeb; color: var(--warn); }
+  .badge-success { background: #f0fdf4; color: var(--success); }
+
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
+  .toast {
+    position: fixed; bottom: 20px; right: 20px; background: var(--text); color: #fff;
+    padding: 12px 18px; border-radius: 8px; font-size: 13px; max-width: 360px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 100; display: none; white-space: pre-line;
+  }
+  .toast.show { display: block; }
+  .toast.toast-error { background: var(--danger); }
+  .toast.toast-success { background: var(--success); }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .stat-card { background: #fafbfc; border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+  .stat-card .num { font-size: 22px; font-weight: 700; }
+  .stat-card .label { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+  select.status-select { margin-bottom: 0; padding: 6px 8px; font-size: 12px; min-width: 150px; }
+  textarea.ket-input { margin-bottom: 0; padding: 6px 8px; font-size: 12px; min-height: 32px; resize: vertical; width: 160px; }
+  .row-save-btn { padding: 5px 10px; font-size: 12px; background: var(--primary); color: #fff; }
+  .row-save-btn:hover { background: var(--primary-dark); }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-dim); }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ffffff55; border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen" class="app active">
+  <div class="login-box">
+    <h1>Verval Data Pertanahan</h1>
+    <p class="sub">Masuk dengan akun operator Anda</p>
+    <label for="loginUsername">Username</label>
+    <input id="loginUsername" type="text" placeholder="contoh: fahmi" autocomplete="username">
+    <label for="loginPin">PIN</label>
+    <input id="loginPin" type="password" placeholder="PIN 4 digit" autocomplete="current-password">
+    <div class="error-msg" id="loginError"></div>
+    <button class="btn-primary" id="loginBtn" onclick="handleLogin()">Masuk</button>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="mainApp" class="app">
+  <header>
+    <div class="brand">📋 Verval Data Pertanahan</div>
+    <div class="who">
+      <span>Masuk sebagai <b id="namaOperatorDisplay"></b></span>
+      <button class="btn-secondary" onclick="handleLogout()">Keluar</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button id="tabAmbilBtn" class="active" onclick="switchTab('ambil')">Ambil Jatah</button>
+    <button id="tabKerjaBtn" onclick="switchTab('kerja')">Data Kerja Saya</button>
+    <button id="tabRekapBtn" onclick="switchTab('rekap')">Rekap</button>
+  </nav>
+
+  <main>
+    <!-- TAB: AMBIL JATAH -->
+    <div id="tabAmbil">
+      <div class="panel">
+        <h2>Ambil Data Jatah</h2>
+        <div class="grid3">
+          <div>
+            <label for="selKecamatan">Kecamatan</label>
+            <select id="selKecamatan" onchange="onKecamatanChange()"></select>
+          </div>
+          <div>
+            <label for="selDesa">Desa</label>
+            <select id="selDesa"></select>
+          </div>
+          <div>
+            <label for="btAwal">BT Awal</label>
+            <input id="btAwal" type="number" placeholder="1">
+          </div>
+          <div>
+            <label for="btAkhir">BT Akhir</label>
+            <input id="btAkhir" type="number" placeholder="100">
+          </div>
+        </div>
+        <button class="btn-primary" style="width:auto; margin-top:4px;" onclick="handleAmbilJatah()" id="ambilBtn">Ambil Data</button>
+      </div>
+    </div>
+
+    <!-- TAB: DATA KERJA SAYA -->
+    <div id="tabKerja" style="display:none;">
+      <div class="panel">
+        <div class="toolbar">
+          <h2 style="margin:0;">Data Kerja Saya (belum selesai)</h2>
+          <button class="btn-secondary" onclick="loadJatahSaya()">🔄 Refresh</button>
+        </div>
+        <div class="table-wrap">
+          <table id="tabelKerja">
+            <thead>
+              <tr>
+                <th>No</th><th>Kecamatan</th><th>Desa</th><th>BT</th><th>Tipe</th><th>NIB</th><th>SU</th><th>Tahun</th>
+                <th>Status BT</th><th>Status SU</th><th>Keterangan</th><th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tabelKerjaBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: REKAP -->
+    <div id="tabRekap" style="display:none;">
+      <div class="panel">
+        <div class="toolbar">
+          <h2 style="margin:0;">Rekap per Status BT</h2>
+          <button class="btn-secondary" onclick="loadRekap()">🔄 Refresh</button>
+        </div>
+        <div class="stat-grid" id="rekapStatusBT"></div>
+      </div>
+      <div class="panel">
+        <h2>Rekap per Operator</h2>
+        <div class="stat-grid" id="rekapOperator"></div>
+      </div>
+      <div class="panel">
+        <h2>Rekap per Wilayah</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Kecamatan</th><th>Desa</th><th>Total</th><th>Selesai</th><th>Dikerjakan</th><th>Belum</th></tr></thead>
+            <tbody id="rekapWilayahBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://jqwfbbcbsxtkghwlkffe.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impxd2ZiYmNic3h0a2dod2xrZmZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzNjkyMzEsImV4cCI6MjEwNjk0NTIzMX0.HZW0H3N-tdsNuVc857d-e18nJp8afey-CJM14aK6zjg';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const STATUS_OPTIONS = ['DTA', 'VERIF', 'TINGGAL VERIF', 'BAHAN QC', 'BUKA VALIDASI', 'TROUBLE', 'PENDING'];
+
+let currentOperator = null; // { id, nama, username }
+let wilayahList = [];
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' toast-' + type : '');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+function saveSession(op) {
+  try { localStorage.setItem('verval_operator', JSON.stringify(op)); } catch (e) {}
+}
+function loadSession() {
+  try {
+    const raw = localStorage.getItem('verval_operator');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function clearSession() {
+  try { localStorage.removeItem('verval_operator'); } catch (e) {}
+}
+
+async function handleLogin() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const pin = document.getElementById('loginPin').value.trim();
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+
+  if (!username || !pin) {
+    errEl.textContent = 'Username dan PIN wajib diisi.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Memeriksa...';
+
+  const { data, error } = await sb.rpc('login_operator', { p_username: username, p_pin: pin });
+
+  btn.disabled = false;
+  btn.textContent = 'Masuk';
+
+  if (error) {
+    errEl.textContent = 'Gagal menghubungi server: ' + error.message;
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!data || data.length === 0) {
+    errEl.textContent = 'Username atau PIN salah.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  currentOperator = data[0];
+  saveSession(currentOperator);
+  enterApp();
+}
+
+function handleLogout() {
+  currentOperator = null;
+  clearSession();
+  document.getElementById('mainApp').classList.remove('active');
+  document.getElementById('loginScreen').classList.add('active');
+  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginPin').value = '';
+}
+
+async function enterApp() {
+  document.getElementById('loginScreen').classList.remove('active');
+  document.getElementById('mainApp').classList.add('active');
+  document.getElementById('namaOperatorDisplay').textContent = currentOperator.nama;
+  await loadWilayah();
+  switchTab('ambil');
+}
+
+function switchTab(tab) {
+  document.getElementById('tabAmbil').style.display = tab === 'ambil' ? 'block' : 'none';
+  document.getElementById('tabKerja').style.display = tab === 'kerja' ? 'block' : 'none';
+  document.getElementById('tabRekap').style.display = tab === 'rekap' ? 'block' : 'none';
+  document.getElementById('tabAmbilBtn').classList.toggle('active', tab === 'ambil');
+  document.getElementById('tabKerjaBtn').classList.toggle('active', tab === 'kerja');
+  document.getElementById('tabRekapBtn').classList.toggle('active', tab === 'rekap');
+  if (tab === 'kerja') loadJatahSaya();
+  if (tab === 'rekap') loadRekap();
+}
+
+async function loadWilayah() {
+  const { data, error } = await sb.rpc('daftar_wilayah');
+  if (error) { showToast('Gagal memuat daftar wilayah: ' + error.message, 'error'); return; }
+  wilayahList = data || [];
+  const kecSet = [...new Set(wilayahList.map(w => w.kecamatan))].sort();
+  const selKec = document.getElementById('selKecamatan');
+  selKec.innerHTML = kecSet.map(k => `<option value="${k}">${k}</option>`).join('');
+  onKecamatanChange();
+}
+
+function onKecamatanChange() {
+  const kec = document.getElementById('selKecamatan').value;
+  const desaList = wilayahList.filter(w => w.kecamatan === kec).map(w => w.desa).sort();
+  document.getElementById('selDesa').innerHTML = desaList.map(d => `<option value="${d}">${d}</option>`).join('');
+}
+
+async function handleAmbilJatah() {
+  const kecamatan = document.getElementById('selKecamatan').value;
+  const desa = document.getElementById('selDesa').value;
+  const btAwal = parseFloat(document.getElementById('btAwal').value);
+  const btAkhir = parseFloat(document.getElementById('btAkhir').value);
+
+  if (!kecamatan || !desa) { showToast('Pilih kecamatan dan desa dulu.', 'error'); return; }
+  if (isNaN(btAwal) || isNaN(btAkhir)) { showToast('Isi rentang BT Awal dan BT Akhir.', 'error'); return; }
+  if (btAwal > btAkhir) { showToast('BT Awal harus lebih kecil atau sama dengan BT Akhir.', 'error'); return; }
+
+  const btn = document.getElementById('ambilBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Mengambil...';
+
+  const { data, error } = await sb.rpc('ambil_jatah', {
+    p_operator_id: currentOperator.id,
+    p_kecamatan: kecamatan,
+    p_desa: desa,
+    p_bt_awal: btAwal,
+    p_bt_akhir: btAkhir
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Ambil Data';
+
+  if (error) { showToast('Gagal mengambil data: ' + error.message, 'error'); return; }
+
+  const jumlah = (data || []).length;
+  if (jumlah === 0) {
+    showToast('Tidak ada data tersedia di rentang ini. Mungkin semua sudah diambil operator lain, atau nomor BT memang tidak ada di album tersebut.', 'error');
+  } else {
+    showToast(`Berhasil mengambil ${jumlah} data. Cek di tab "Data Kerja Saya".`, 'success');
+    switchTab('kerja');
+  }
+}
+
+async function loadJatahSaya() {
+  const tbody = document.getElementById('tabelKerjaBody');
+  tbody.innerHTML = '<tr><td colspan="12" class="empty-state">Memuat...</td></tr>';
+
+  const { data, error } = await sb.rpc('jatah_saya', { p_operator_id: currentOperator.id });
+  if (error) { tbody.innerHTML = `<tr><td colspan="12" class="empty-state">Gagal memuat: ${error.message}</td></tr>`; return; }
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12" class="empty-state">Belum ada data yang diambil. Buka tab "Ambil Jatah" untuk mulai.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(row => `
+    <tr data-id="${row.id}">
+      <td>${row.no_urut ?? '-'}</td>
+      <td>${esc(row.kecamatan)}</td>
+      <td>${esc(row.desa)}</td>
+      <td>${row.bt}</td>
+      <td>${esc(row.tipe ?? '')}</td>
+      <td>${esc(row.nib ?? '')}</td>
+      <td>${row.su ?? ''}</td>
+      <td>${row.tahun ?? ''}</td>
+      <td>${selectStatus('statusBT_' + row.id, row.status_bt)}</td>
+      <td>${selectStatus('statusSU_' + row.id, row.status_su)}</td>
+      <td><textarea class="ket-input" id="ket_${row.id}">${esc(row.keterangan ?? '')}</textarea></td>
+      <td><button class="row-save-btn" onclick="handleSimpanBaris(${row.id})">Simpan</button></td>
+    </tr>
+  `).join('');
+}
+
+function selectStatus(id, current) {
+  const opts = STATUS_OPTIONS.map(s => `<option value="${s}" ${s === current ? 'selected' : ''}>${s}</option>`).join('');
+  return `<select class="status-select" id="${id}"><option value="">(kosong)</option>${opts}</select>`;
+}
+
+async function handleSimpanBaris(id) {
+  const statusBT = document.getElementById('statusBT_' + id).value;
+  const statusSU = document.getElementById('statusSU_' + id).value;
+  const keterangan = document.getElementById('ket_' + id).value;
+
+  const { data, error } = await sb.rpc('simpan_status', {
+    p_operator_id: currentOperator.id,
+    p_bidang_id: id,
+    p_status_bt: statusBT || null,
+    p_status_su: statusSU || null,
+    p_keterangan: keterangan || null
+  });
+
+  if (error) { showToast('Gagal menyimpan: ' + error.message, 'error'); return; }
+  if (data === false) { showToast('Baris ini bukan milik Anda (sudah diambil alih atau sudah dilepas).', 'error'); return; }
+
+  showToast('Tersimpan.', 'success');
+  const tr = document.querySelector(`tr[data-id="${id}"]`);
+  if (tr) tr.remove();
+
+  const tbody = document.getElementById('tabelKerjaBody');
+  if (!tbody.querySelector('tr')) {
+    tbody.innerHTML = '<tr><td colspan="12" class="empty-state">Semua data sudah disimpan. Ambil jatah baru di tab sebelumnya.</td></tr>';
+  }
+}
+
+async function loadRekap() {
+  const [bt, operator, wilayah] = await Promise.all([
+    sb.from('rekap_status_bt').select('*'),
+    sb.from('rekap_operator').select('*'),
+    sb.from('rekap_wilayah').select('*')
+  ]);
+
+  const elBT = document.getElementById('rekapStatusBT');
+  if (bt.error) {
+    elBT.innerHTML = `<div class="empty-state">Gagal memuat: ${bt.error.message}</div>`;
+  } else {
+    elBT.innerHTML = (bt.data || []).map(r => `
+      <div class="stat-card"><div class="num">${r.jumlah}</div><div class="label">${esc(r.status_bt)}</div></div>
+    `).join('') || '<div class="empty-state">Belum ada data.</div>';
+  }
+
+  const elOp = document.getElementById('rekapOperator');
+  if (operator.error) {
+    elOp.innerHTML = `<div class="empty-state">Gagal memuat: ${operator.error.message}</div>`;
+  } else {
+    elOp.innerHTML = (operator.data || []).map(r => `
+      <div class="stat-card"><div class="num">${r.jumlah}</div><div class="label">${esc(r.operator)}</div></div>
+    `).join('') || '<div class="empty-state">Belum ada data selesai.</div>';
+  }
+
+  const bodyWilayah = document.getElementById('rekapWilayahBody');
+  if (wilayah.error) {
+    bodyWilayah.innerHTML = `<tr><td colspan="6" class="empty-state">Gagal memuat: ${wilayah.error.message}</td></tr>`;
+  } else {
+    bodyWilayah.innerHTML = (wilayah.data || []).map(r => `
+      <tr>
+        <td>${esc(r.kecamatan)}</td><td>${esc(r.desa)}</td><td>${r.total}</td>
+        <td><span class="badge badge-success">${r.selesai}</span></td>
+        <td><span class="badge badge-warn">${r.sedang_dikerjakan}</span></td>
+        <td><span class="badge badge-info">${r.belum_dikerjakan}</span></td>
+      </tr>
+    `).join('') || '<tr><td colspan="6" class="empty-state">Belum ada data.</td></tr>';
+  }
+}
+
+function esc(str) {
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Login dengan Enter key
+document.getElementById('loginPin').addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+document.getElementById('loginUsername').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('loginPin').focus(); });
+
+// Cek sesi tersimpan
+(function init() {
+  const saved = loadSession();
+  if (saved && saved.id) {
+    currentOperator = saved;
+    enterApp();
+  }
+})();
+</script>
+</body>
+</html>
